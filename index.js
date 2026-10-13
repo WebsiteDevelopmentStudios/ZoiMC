@@ -56,11 +56,8 @@ function connectBot() {
       port: MC_PORT,
       username: USERNAME,
       offline: false,
-      // MicrosoftAuthFlow requires an explicit authentication flow.
-      flow: "live",
-      authTitle: "0000000048183522",
-      deviceType: "Android",
-      deviceOS: 1,
+      // Use bedrock-protocol's documented default auth title/platform and live flow.
+      // This keeps authTitle, deviceType, and deviceOS consistent with the library.
       onMsaCode: (data) => {
         console.log("Microsoft device authentication required.");
         console.log(`Open ${data.verification_uri} and enter code ${data.user_code}`);
