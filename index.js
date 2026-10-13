@@ -62,7 +62,7 @@ function connectBot() {
       host: HOST,
       port: MC_PORT,
       username: USERNAME,
-      version: "1.26.50",
+      version: "1.26.51",
       offline: false,
       // Keep the library's default title/platform options consistent.
       onMsaCode: (data) => {
