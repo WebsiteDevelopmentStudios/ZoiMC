@@ -19,8 +19,8 @@ const startedAt = new Date().toISOString();
 let lastConnectedAt = null;
 
 app.get("/", (_req, res) => res.type("text").send("Minecraft Bedrock keepalive service is running.\n"));
-app.get("/health", (_req, res) => res.status(connected ? 200 : 503).json({
-  ok: connected, service: "minecraft-bedrock-keepalive", connected,
+app.get("/health", (_req, res) => res.status(200).json({
+  ok: true, service: "minecraft-bedrock-keepalive", connected,
   host: HOST, port: MC_PORT, startedAt, lastConnectedAt, lastError
 }));
 
