@@ -54,6 +54,7 @@ function connectBot() {
     client = bedrock.createClient({
       host: HOST, port: MC_PORT, username: USERNAME,
       offline: false, authTitle: "00000000402b5328", flow: "live",
+      deviceOS: "Windows",
       onMsaCode: (data) => {
         console.log("Microsoft device authentication required.");
         console.log(`Open ${data.verification_uri} and enter code ${data.user_code}`);
