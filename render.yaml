@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: minecraft-bedrock-keepalive
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MC_HOST
+        value: zoimc.vexr.dev
+      - key: MC_PORT
+        value: "19132"
+      - key: MC_USERNAME
+        sync: false
+      - key: LOOK_INTERVAL_MS
+        value: "45000"
+      - key: RECONNECT_MS
+        value: "15000"
