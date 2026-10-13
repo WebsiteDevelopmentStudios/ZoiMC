@@ -52,9 +52,13 @@ function connectBot() {
   lastError = null;
   try {
     client = bedrock.createClient({
-      host: HOST, port: MC_PORT, username: USERNAME,
-      offline: false, authTitle: "00000000402b5328", flow: "live",
-      deviceOS: "Windows",
+      host: HOST,
+      port: MC_PORT,
+      username: USERNAME,
+      offline: false,
+      // Use the Minecraft Bedrock Android title, not the Minecraft Java title.
+      authTitle: "0000000048183522",
+      deviceOS: 1,
       onMsaCode: (data) => {
         console.log("Microsoft device authentication required.");
         console.log(`Open ${data.verification_uri} and enter code ${data.user_code}`);
@@ -68,17 +72,21 @@ function connectBot() {
       connected = true; lastConnectedAt = new Date().toISOString();
       console.log("Bedrock player spawned."); startLookLoop();
     });
+    client.on("kick", (reason) => {
+      console.warn("Bedrock server kicked the bot:", JSON.stringify(reason));
+    });
     client.on("disconnect", (reason) => {
       console.warn("Bedrock disconnected:", reason); resetConnection("Disconnected from server");
     });
     client.on("close", () => { console.warn("Bedrock connection closed."); resetConnection("Connection closed"); });
     client.on("error", (err) => {
-      lastError = err?.message || String(err); console.error("Bedrock client error:", lastError);
-      resetConnection(lastError);
+      lastError = err?.stack || err?.message || String(err);
+      console.error("Bedrock client error:", lastError);
+      resetConnection(err?.message || String(err));
     });
   } catch (err) {
-    lastError = err?.message || String(err); console.error("Could not create Bedrock client:", lastError);
-    resetConnection(lastError);
+    lastError = err?.stack || err?.message || String(err); console.error("Could not create Bedrock client:", lastError);
+    resetConnection(err?.message || String(err));
   }
 }
 function startLookLoop() {
@@ -122,8 +130,8 @@ function shutdown(signal) {
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("unhandledRejection", (err) => {
-  console.error("Unhandled promise rejection:", err); lastError = err?.message || String(err);
+  console.error("Unhandled promise rejection:", err?.stack || err); lastError = err?.message || String(err);
 });
 process.on("uncaughtException", (err) => {
-  console.error("Uncaught exception:", err); lastError = err?.message || String(err);
+  console.error("Uncaught exception:", err?.stack || err); lastError = err?.message || String(err);
 });
