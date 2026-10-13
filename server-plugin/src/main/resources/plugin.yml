@@ -1,0 +1,6 @@
+name: ZoiMCRenderHeartbeat
+version: '${version}'
+main: dev.zoimc.renderheartbeat.RenderHeartbeatPlugin
+api-version: '1.21'
+description: Periodically pings the ZoiMC Render service to keep its HTTP endpoint active.
+author: WebsiteDevelopmentStudios
