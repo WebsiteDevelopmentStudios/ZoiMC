@@ -56,8 +56,10 @@ function connectBot() {
       port: MC_PORT,
       username: USERNAME,
       offline: false,
-      // Use the Minecraft Bedrock Android title, not the Minecraft Java title.
+      // MicrosoftAuthFlow requires an explicit authentication flow.
+      flow: "live",
       authTitle: "0000000048183522",
+      deviceType: "Android",
       deviceOS: 1,
       onMsaCode: (data) => {
         console.log("Microsoft device authentication required.");
