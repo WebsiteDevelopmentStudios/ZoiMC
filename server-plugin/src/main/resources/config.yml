@@ -1,0 +1,8 @@
+# Render web service health endpoint to ping.
+url: "https://minecraft-bedrock-keepalive.onrender.com/health"
+
+# Seconds between requests. Keep this above 60 seconds.
+interval-seconds: 300
+
+# HTTP request timeout.
+timeout-seconds: 15
