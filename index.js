@@ -8,19 +8,22 @@ const MC_PORT = Number(process.env.MC_PORT || 19132);
 const USERNAME = process.env.MC_USERNAME;
 const LOOK_INTERVAL_MS = Number(process.env.LOOK_INTERVAL_MS || 45_000);
 const RECONNECT_MS = Number(process.env.RECONNECT_MS || 15_000);
+const CONNECT_WATCHDOG_MS = Number(process.env.CONNECT_WATCHDOG_MS || 180_000);
 
 let client = null;
 let reconnectTimer = null;
 let lookTimer = null;
+let connectWatchdogTimer = null;
 let stopping = false;
 let connected = false;
+let connectionStage = "starting";
 let lastError = null;
 const startedAt = new Date().toISOString();
 let lastConnectedAt = null;
 
 app.get("/", (_req, res) => res.type("text").send("Minecraft Bedrock keepalive service is running.\n"));
 app.get("/health", (_req, res) => res.status(200).json({
-  ok: true, service: "minecraft-bedrock-keepalive", connected,
+  ok: true, service: "minecraft-bedrock-keepalive", connected, connectionStage,
   host: HOST, port: MC_PORT, startedAt, lastConnectedAt, lastError
 }));
 
@@ -34,6 +37,8 @@ function clearBotTimers() {
   lookTimer = null;
   if (reconnectTimer) clearTimeout(reconnectTimer);
   reconnectTimer = null;
+  if (connectWatchdogTimer) clearTimeout(connectWatchdogTimer);
+  connectWatchdogTimer = null;
 }
 function scheduleReconnect() {
   if (stopping || reconnectTimer) return;
@@ -44,41 +49,68 @@ function connectBot() {
   if (stopping || client) return;
   if (!USERNAME) {
     lastError = "MC_USERNAME is required. Set it in the Render environment.";
+    connectionStage = "configuration-error";
     console.error(lastError);
     scheduleReconnect();
     return;
   }
   console.log(`Connecting to Bedrock server ${HOST}:${MC_PORT} as ${USERNAME}`);
   lastError = null;
+  connectionStage = "authenticating";
   try {
-    client = bedrock.createClient({
+    const thisClient = bedrock.createClient({
       host: HOST,
       port: MC_PORT,
       username: USERNAME,
       offline: false,
-      // Use bedrock-protocol's documented default auth title/platform and live flow.
-      // This keeps authTitle, deviceType, and deviceOS consistent with the library.
+      // Keep the library's default title/platform options consistent.
       onMsaCode: (data) => {
         console.log("Microsoft device authentication required.");
         console.log(`Open ${data.verification_uri} and enter code ${data.user_code}`);
       }
     });
-    client.on("join", () => {
-      connected = true; lastConnectedAt = new Date().toISOString(); lastError = null;
+    client = thisClient;
+
+    // Authentication has previously stalled without emitting an error. Log the
+    // stage and recycle the client if neither join nor spawn occurs in time.
+    connectWatchdogTimer = setTimeout(() => {
+      if (client !== thisClient || connected || stopping) return;
+      const message = `Connection watchdog expired after ${CONNECT_WATCHDOG_MS}ms at stage "${connectionStage}". No join/spawn event received.`;
+      console.error(message);
+      resetConnection(message);
+    }, CONNECT_WATCHDOG_MS);
+    connectWatchdogTimer.unref?.();
+
+    thisClient.on("session", (profile) => {
+      connectionStage = "server-login";
+      console.log(`Microsoft/Xbox authentication completed; continuing to server login (profile: ${profile?.name || "unknown"}).`);
+    });
+    thisClient.on("connect", () => {
+      connectionStage = "transport-connected";
+      console.log("Bedrock transport connected; waiting for server login/spawn.");
+    });
+    thisClient.on("join", () => {
+      connected = true; connectionStage = "joined";
+      lastConnectedAt = new Date().toISOString(); lastError = null;
+      if (connectWatchdogTimer) clearTimeout(connectWatchdogTimer);
+      connectWatchdogTimer = null;
       console.log("Bedrock session joined."); startLookLoop();
     });
-    client.on("spawn", () => {
-      connected = true; lastConnectedAt = new Date().toISOString();
+    thisClient.on("spawn", () => {
+      connected = true; connectionStage = "spawned";
+      lastConnectedAt = new Date().toISOString();
+      if (connectWatchdogTimer) clearTimeout(connectWatchdogTimer);
+      connectWatchdogTimer = null;
       console.log("Bedrock player spawned."); startLookLoop();
     });
-    client.on("kick", (reason) => {
+    thisClient.on("kick", (reason) => {
       console.warn("Bedrock server kicked the bot:", JSON.stringify(reason));
     });
-    client.on("disconnect", (reason) => {
+    thisClient.on("disconnect", (reason) => {
       console.warn("Bedrock disconnected:", reason); resetConnection("Disconnected from server");
     });
-    client.on("close", () => { console.warn("Bedrock connection closed."); resetConnection("Connection closed"); });
-    client.on("error", (err) => {
+    thisClient.on("close", () => { console.warn("Bedrock connection closed."); resetConnection("Connection closed"); });
+    thisClient.on("error", (err) => {
       lastError = err?.stack || err?.message || String(err);
       console.error("Bedrock client error:", lastError);
       resetConnection(err?.message || String(err));
@@ -109,7 +141,8 @@ function startLookLoop() {
   lookTimer.unref?.();
 }
 function resetConnection(reason) {
-  connected = false; lastError = reason || lastError; clearBotTimers();
+  connected = false; connectionStage = "reconnecting";
+  lastError = reason || lastError; clearBotTimers();
   const oldClient = client; client = null;
   if (oldClient) {
     try { oldClient.removeAllListeners(); } catch {}
@@ -120,7 +153,7 @@ function resetConnection(reason) {
 function shutdown(signal) {
   if (stopping) return;
   stopping = true; console.log(`Received ${signal}; shutting down.`);
-  clearBotTimers(); connected = false;
+  clearBotTimers(); connected = false; connectionStage = "stopping";
   try { client?.close(); } catch {}
   client = null;
   server.close(() => process.exit(0));
@@ -132,5 +165,5 @@ process.on("unhandledRejection", (err) => {
   console.error("Unhandled promise rejection:", err?.stack || err); lastError = err?.message || String(err);
 });
 process.on("uncaughtException", (err) => {
-  console.error("Uncaught exception:", err?.stack || err); lastError = err?.message || String(err);
+  console.error("Uncaught exception:", err?.stack || String(err)); lastError = err?.message || String(err);
 });
