@@ -4,3 +4,12 @@ main: dev.zoimc.renderheartbeat.RenderHeartbeatPlugin
 api-version: '1.21'
 description: Periodically pings the ZoiMC Render service to keep its HTTP endpoint active.
 author: WebsiteDevelopmentStudios
+commands:
+  renderheartbeat:
+    description: Shows the status of the Render heartbeat requests.
+    usage: /renderheartbeat status
+    permission: zoimc.renderheartbeat.status
+permissions:
+  zoimc.renderheartbeat.status:
+    description: Allows viewing the Render heartbeat status.
+    default: op
