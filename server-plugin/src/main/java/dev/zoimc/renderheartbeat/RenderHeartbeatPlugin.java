@@ -1,6 +1,8 @@
 package dev.zoimc.renderheartbeat;
 
 import org.bukkit.Bukkit;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.net.URI;
@@ -8,12 +10,19 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class RenderHeartbeatPlugin extends JavaPlugin {
     private HttpClient httpClient;
     private int taskId = -1;
     private final AtomicBoolean requestInFlight = new AtomicBoolean(false);
+
+    private volatile Instant lastAttemptAt;
+    private volatile Instant lastSuccessAt;
+    private volatile Integer lastHttpStatus;
+    private volatile Boolean lastRequestSucceeded;
+    private volatile String lastError;
 
     @Override
     public void onEnable() {
@@ -55,6 +64,7 @@ public final class RenderHeartbeatPlugin extends JavaPlugin {
             return;
         }
 
+        lastAttemptAt = Instant.now();
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(endpoint))
@@ -66,19 +76,64 @@ public final class RenderHeartbeatPlugin extends JavaPlugin {
 
             HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
             int status = response.statusCode();
+            lastHttpStatus = status;
             if (status >= 200 && status < 300) {
+                lastRequestSucceeded = true;
+                lastSuccessAt = Instant.now();
+                lastError = null;
                 getLogger().fine("Render heartbeat succeeded (HTTP " + status + ").");
             } else {
+                lastRequestSucceeded = false;
+                lastError = "HTTP " + status;
                 getLogger().warning("Render heartbeat returned HTTP " + status + ".");
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
+            lastRequestSucceeded = false;
+            lastError = "Request interrupted";
             getLogger().warning("Render heartbeat was interrupted.");
         } catch (Exception exception) {
+            lastRequestSucceeded = false;
+            lastError = exception.getMessage() == null
+                    ? exception.getClass().getSimpleName()
+                    : exception.getClass().getSimpleName() + ": " + exception.getMessage();
             getLogger().warning("Render heartbeat failed: " + exception.getMessage());
         } finally {
             requestInFlight.set(false);
         }
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!command.getName().equalsIgnoreCase("renderheartbeat")) {
+            return false;
+        }
+        if (args.length != 1 || !args[0].equalsIgnoreCase("status")) {
+            sender.sendMessage("Usage: /renderheartbeat status");
+            return true;
+        }
+
+        sender.sendMessage("=== Render Heartbeat Status ===");
+        sender.sendMessage("Request in progress: " + requestInFlight.get());
+        sender.sendMessage("Last attempt: " + formatTime(lastAttemptAt));
+        sender.sendMessage("Last result: " + formatResult());
+        sender.sendMessage("Last HTTP status: " + (lastHttpStatus == null ? "N/A" : lastHttpStatus));
+        sender.sendMessage("Last successful request: " + formatTime(lastSuccessAt));
+        if (lastError != null) {
+            sender.sendMessage("Last error: " + lastError);
+        }
+        return true;
+    }
+
+    private String formatResult() {
+        if (lastRequestSucceeded == null) {
+            return "No request completed yet";
+        }
+        return lastRequestSucceeded ? "SUCCESS" : "FAILED";
+    }
+
+    private String formatTime(Instant time) {
+        return time == null ? "Never" : time.toString() + " (UTC)";
     }
 
     @Override
