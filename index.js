@@ -71,6 +71,8 @@ function connectBot() {
     });
     client = thisClient;
 
+    // Authentication has previously stalled without emitting an error. Log the
+    // stage and recycle the client if neither join nor spawn occurs in time.
     connectWatchdogTimer = setTimeout(() => {
       if (client !== thisClient || connected || stopping) return;
       const message = `Connection watchdog expired after ${CONNECT_WATCHDOG_MS}ms at stage "${connectionStage}". No join/spawn event received.`;
@@ -79,42 +81,13 @@ function connectBot() {
     }, CONNECT_WATCHDOG_MS);
     connectWatchdogTimer.unref?.();
 
-    // These packets identify precisely where login stops. Never log packet
-    // payloads, which may contain large or account/server-specific data.
-    thisClient.on("packet", (packet) => {
-      const name = packet?.data?.name;
-      const stages = {
-        server_to_client_handshake: "encrypted-login",
-        play_status: "play-status",
-        resource_packs_info: "resource-packs-info",
-        resource_pack_stack: "resource-pack-stack",
-        start_game: "start-game",
-        item_registry: "item-registry",
-        level_chunk: "receiving-chunks"
-      };
-      if (name && stages[name]) {
-        connectionStage = stages[name];
-        console.log(`Received Bedrock packet: ${name}; stage=${connectionStage}`);
-        if (name === "play_status") {
-          const status = packet?.data?.params?.status;
-          console.log(`Bedrock play status: ${String(status)}`);
-        }
-        if (name === "resource_packs_info") {
-          const params = packet?.data?.params || {};
-          const behaviourCount = params.behaviour_packs?.length ?? params.behavior_packs?.length ?? 0;
-          const textureCount = params.texture_packs?.length ?? 0;
-          console.log(`Server resource-pack info: ${behaviourCount} behavior pack(s), ${textureCount} texture pack(s), required=${Boolean(params.must_accept)`);
-        }
-        if (name === "resource_pack_stack") {
-          const params = packet?.data?.params || {};
-          console.log(`Server resource-pack stack: ${params.behavior_packs?.length ?? params.behaviour_packs?.length ?? 0} behavior pack(s), ${params.resource_packs?.length ?? 0} resource pack(s)`);
-        }
-      }
-    });
-
     thisClient.on("session", (profile) => {
       connectionStage = "server-login";
       console.log(`Microsoft/Xbox authentication completed; continuing to server login (profile: ${profile?.name || "unknown"}).`);
+    });
+    thisClient.on("connect", () => {
+      connectionStage = "transport-connected";
+      console.log("Bedrock transport connected; waiting for server login/spawn.");
     });
     thisClient.on("join", () => {
       connected = true; connectionStage = "joined";
