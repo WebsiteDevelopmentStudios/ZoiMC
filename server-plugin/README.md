@@ -23,6 +23,10 @@ The plugin jar is written to `server-plugin/build/libs/zoimc-render-heartbeat-1.
 Default endpoint: `https://minecraft-bedrock-keepalive.onrender.com/health`  
 Default interval: 300 seconds.
 
+## Check heartbeat status
+
+Run `/renderheartbeat status` in-game or from the Paper server console. It reports the last request attempt, whether it succeeded, the most recent HTTP status code, the last successful request time, and any recorded error. The command is available to operators by default through the `zoimc.renderheartbeat.status` permission.
+
 The plugin uses Java's HTTP client on an asynchronous Bukkit scheduler task and does not block the server tick thread. Successful heartbeat messages are logged at DEBUG/FINE level; non-2xx responses and network errors are warnings.
 
 ## Notes
