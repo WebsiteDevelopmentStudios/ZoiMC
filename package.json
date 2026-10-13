@@ -1,0 +1,16 @@
+{
+  "name": "minecraft-bedrock-keepalive",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "bedrock-protocol": "3.60.1",
+    "express": "4.21.2"
+  }
+}
