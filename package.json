@@ -4,14 +4,14 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "start": "node index.js",
     "check:nethernet": "node scripts/check-nethernet-signalling.js"
   },
   "dependencies": {
-    "bedrock-protocol": "3.60.1",
+    "bedrock-protocol": "github:PrismarineJS/bedrock-protocol#feat/nethernet-http",
     "express": "4.21.2"
   }
 }
