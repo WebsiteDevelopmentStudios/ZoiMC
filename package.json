@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node index.js",
+    "postinstall": "node scripts/patch-nethernet-identity.js",
     "check:nethernet": "node scripts/check-nethernet-signalling.js"
   },
   "dependencies": {
