@@ -4,7 +4,7 @@ import bedrock from "bedrock-protocol";
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.MC_HOST || "zoimc.vexr.dev";
-const MC_PORT = Number(process.env.MC_PORT || 10044);
+const SIGNAL_PORT = Number(process.env.NETHERNET_SIGNAL_PORT || 10044);
 const USERNAME = process.env.MC_USERNAME;
 const NETHERNET_SERVER_KEY = process.env.NETHERNET_SERVER_KEY?.trim();
 const LOOK_INTERVAL_MS = Number(process.env.LOOK_INTERVAL_MS || 45_000);
@@ -25,7 +25,7 @@ let lastConnectedAt = null;
 app.get("/", (_req, res) => res.type("text").send("Minecraft Bedrock keepalive service is running.\n"));
 app.get("/health", (_req, res) => res.status(200).json({
   ok: true, service: "minecraft-bedrock-keepalive", connected, connectionStage,
-  host: HOST, port: MC_PORT, transport: "nethernet-http", serverKeyPinned: Boolean(NETHERNET_SERVER_KEY), startedAt, lastConnectedAt, lastError
+  host: HOST, port: SIGNAL_PORT, transport: "nethernet-http", serverKeyPinned: Boolean(NETHERNET_SERVER_KEY), startedAt, lastConnectedAt, lastError
 }));
 
 const server = app.listen(PORT, "0.0.0.0", () => {
@@ -55,13 +55,13 @@ function connectBot() {
     scheduleReconnect();
     return;
   }
-  console.log(`Connecting to Bedrock server via NetherNet HTTP signalling at ${HOST}:${MC_PORT} as ${USERNAME}`);
+  console.log(`Connecting to Bedrock server via NetherNet HTTP signalling at ${HOST}:${SIGNAL_PORT} as ${USERNAME}`);
   lastError = null;
   connectionStage = "authenticating";
   try {
     const thisClient = bedrock.createClient({
       host: HOST,
-      port: MC_PORT,
+      port: SIGNAL_PORT,
       username: USERNAME,
       version: "1.26.51",
       offline: false,
